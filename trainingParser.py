@@ -1,9 +1,10 @@
 import csv
 import os
 from math import floor
-
+from skimage import morphology
+import numpy as np
 from matplotlib import pyplot as plt
-
+import time
 from BoundBox import BoundBox
 from Coords import Coords
 
@@ -65,6 +66,22 @@ def applyTreshhold(greyAr):
             greyAr[i] = BLACK
     return greyAr
 
+def skeletonize(boxes):
+    for box in boxes:
+        tempArray = [[0 for y in range(0, len(box.pixels[0]))] for x in range(0, len(box.pixels))]
+        for i in range(0, len(box.pixels)):
+            for j in range(0, len(box.pixels[0])):
+                if box.pixels[i][j] == 0:
+                    tempArray[i][j] = 1
+        npmatrix = (np.array(tempArray)).astype(np.uint8)
+        skele = morphology.medial_axis(npmatrix)
+        tempArray = [[255 for y in range(0, len(box.pixels[0]))] for x in range(0, len(box.pixels))]
+        for i in range(0,len(box.pixels)):
+            for j in range(0,len(box.pixels[0])):
+                if skele[i][j]==True:
+                    tempArray[i][j]=0
+        box.pixels=tempArray
+    return boxes
 
 def reformArray(greyAr):
     finalArray = []
@@ -323,7 +340,7 @@ def exportToFile(boxes):
         # featureArray[index] = featureArray[index] + box.zones
         index += 1
 
-    with open('test.csv', 'w') as f:
+    with open('timeTest.csv', 'w') as f:
         write = csv.writer(f)
         for row in featureArray:
             write.writerow(row)
@@ -339,31 +356,36 @@ classes = ["a", "b", "c", "d", "e", "f", "g", "h", "i", "j", "k", "l", "m", "n",
            "alpha", "=", "!", "+", "1", "2", "3", "4", "5", "6", "7", "8", "9", "0", "divLine",
            ",", "dot"]
 imageArray = []
+timeStart = time.time()
 for cl in classes:
     imageArray.append([cl, load(str(cl))])
 boxes = []
-
-for img in imageArray:
+# itemCount=len(imageArray)
+itemCount=len(imageArray)
+print(itemCount)
+for j in range(0,itemCount):
     temp = []
     temp2 = []
     temp3 = []
 
-    for i in range(0, len(img[1])):
-        temp.append(transformToGreyscale(img[1][i]))
+    for i in range(0, len(imageArray[j][1])):
+        temp.append(transformToGreyscale(imageArray[j][1][i]))
     for i in range(0, len(temp)):
         temp2.append(applyTreshhold(temp[i]))
     for i in range(0, len(temp2)):
         temp3.append(reformArray(temp2[i]))
     for i in range(0, len(temp3)):
-        boxes.append(getCharacterBoxes(temp3[i], img[0]))
-
+        boxes.append(getCharacterBoxes(temp3[i], imageArray[j][0]))
+print("here")
 for b in boxes:
     b = resize(b, len(b.pixels[0]), len(b.pixels), 25, 25)
+boxes=skeletonize(boxes)
 boxes = getProjectionHorizontal(boxes)
 boxes = getProjectionVertical(boxes)
 boxes = getZones(boxes)
 boxes = getColumnCrossings(boxes)
 boxes = getRowCrossings(boxes)
 boxes = exportToFile(boxes)
-
-# print (imageArray[0][1])
+timeEnd = time.time()
+totalTime = timeEnd - timeStart
+print(totalTime)
